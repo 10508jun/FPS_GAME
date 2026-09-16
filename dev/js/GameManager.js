@@ -267,6 +267,14 @@ class GameManager {
       return;
     }
 
+    // 사격장 무제한 탄창 & 무제한 크레딧 적용
+    if (this.gameMode === 'range') {
+      if (this.economy) this.economy.credits = 99999;
+      if (this.player) this.player.credits = 99999;
+      const isInf = this.rangeMapMgr ? this.rangeMapMgr.settings.infiniteAmmo !== false : true;
+      if (this.weaponSys) this.weaponSys.setInfiniteAmmo(isInf);
+    }
+
     // ── 플레이어 업데이트 ──
     this.player.update(dt, this.input, this.mapData.walls, this.audio);
     this.input.updateCamera(this.camera.x, this.camera.y);
@@ -420,20 +428,25 @@ class GameManager {
     }
   }
 
-  // ── 맵 렌더링 ────────────────────────────────────────────
+  // ── 맵 렌더링 (고퀄리티 그래픽) ────────────────────────────
   _renderMap(ctx) {
-    // 바닥 구역
     const floorColors = {
-      spawn_atk: '#0f1e12', spawn_def: '#0f0f1e',
-      site_a: '#101a10', site_b: '#10101a', site_c: '#1a1010',
-      corridor: '#0f1420', mid: '#0e1218',
+      spawn_atk: '#0f1e16', spawn_def: '#0f1224',
+      site_a: '#102216', site_b: '#101428', site_c: '#261214',
+      corridor: '#0d1626', mid: '#0f1828',
     };
     const floors = (this.mapData && this.mapData.floors) || [];
     for (const f of floors) {
-      ctx.fillStyle = floorColors[f.type] || '#0f1420';
+      // 1. 바닥 그라디언트 & 베이스
+      ctx.save();
+      const grad = ctx.createLinearGradient(f.x, f.y, f.x + f.w, f.y + f.h);
+      grad.addColorStop(0, floorColors[f.type] || '#0d1626');
+      grad.addColorStop(1, '#070b14');
+      ctx.fillStyle = grad;
       ctx.fillRect(f.x, f.y, f.w, f.h);
-      // 그리드 패턴
-      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+
+      // 2. 사이버 그리드 & 텍스처 패널
+      ctx.strokeStyle = 'rgba(0, 212, 255, 0.04)';
       ctx.lineWidth = 1;
       const step = 64;
       for (let gx = f.x; gx < f.x + f.w; gx += step) {
@@ -443,36 +456,70 @@ class GameManager {
         ctx.beginPath(); ctx.moveTo(f.x, gy); ctx.lineTo(f.x + f.w, gy); ctx.stroke();
       }
 
-      // 지형 이름 (Callouts) 렌더링
+      // 3. 지형 테두리 하이라이트 & 콜아웃
+      ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(f.x + 1, f.y + 1, f.w - 2, f.h - 2);
+
       if (f.label) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,255,255,0.15)';
-        ctx.font = `700 24px ${CONFIG.FONT_HUD}`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.font = `900 28px ${CONFIG.FONT_HUD}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(f.label, f.x + f.w / 2, f.y + f.h / 2);
-        ctx.restore();
       }
+      ctx.restore();
     }
 
-    // 벽
+    // ── 벽 & 엄폐 상자 (고퀄리티 3D 입체 렌더링) ──
     const walls = (this.mapData && this.mapData.walls) || [];
     for (const w of walls) {
       const rh = w.h || w.height || 30;
-      if (w.type === 'cover') {
-        ctx.fillStyle = '#374151';
-        ctx.strokeStyle = '#4b5563';
-      } else {
-        ctx.fillStyle = '#1c2b3a';
-        ctx.strokeStyle = '#2a3f56';
-      }
-      ctx.lineWidth = 1.5;
-      ctx.fillRect(w.x, w.y, w.w, rh);
-      ctx.strokeRect(w.x, w.y, w.w, rh);
+      ctx.save();
 
-      // 벽 상단 하이라이트
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      ctx.fillRect(w.x, w.y, w.w, 2);
+      if (w.type === 'cover') {
+        // 전술 상자 / 엄폐물 (Tactical Metal Crate)
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(w.x, w.y, w.w, rh);
+
+        // 대각선 위험/사선 패턴 (Hazard Stripes)
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(w.x, w.y, w.w, rh);
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(245, 166, 35, 0.25)';
+        ctx.lineWidth = 8;
+        for (let ix = -rh; ix < w.w + rh; ix += 20) {
+          ctx.beginPath();
+          ctx.moveTo(w.x + ix, w.y);
+          ctx.lineTo(w.x + ix + 20, w.y + rh);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 테두리 & 모서리 섀도우
+        ctx.strokeStyle = '#f5a623';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(w.x, w.y, w.w, rh);
+
+      } else {
+        // 강철 구조 벽 (Reinforced Wall)
+        const wallGrad = ctx.createLinearGradient(w.x, w.y, w.x + w.w, w.y + rh);
+        wallGrad.addColorStop(0, '#1c2d42');
+        wallGrad.addColorStop(1, '#0f1a28');
+        ctx.fillStyle = wallGrad;
+        ctx.fillRect(w.x, w.y, w.w, rh);
+
+        ctx.strokeStyle = '#2a4060';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(w.x, w.y, w.w, rh);
+
+        // 상단 LED 네온 엣지 하이라이트
+        ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
+        ctx.fillRect(w.x, w.y, w.w, 2);
+      }
+
+      ctx.restore();
     }
   }
 

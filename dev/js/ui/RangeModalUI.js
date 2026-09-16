@@ -100,6 +100,14 @@ class RangeModalUI {
               </div>
             </div>
 
+            <div class="option-group">
+              <label>♾️ 무한 탄창 (Infinite Ammo)</label>
+              <div class="btn-group" id="opt-infiniteAmmo">
+                <button class="opt-btn" data-val="true" onclick="window.rangeModalUI.selectOpt('infiniteAmmo', true)">무제한 ON ♾️</button>
+                <button class="opt-btn" data-val="false" onclick="window.rangeModalUI.selectOpt('infiniteAmmo', false)">일반 탄약 OFF</button>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -141,7 +149,7 @@ class RangeModalUI {
     const group = document.getElementById(`opt-${key}`);
     if (group) {
       group.querySelectorAll('.opt-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.val === val);
+        btn.classList.toggle('active', btn.dataset.val === String(val));
       });
     }
   }
@@ -156,8 +164,8 @@ class RangeModalUI {
       document.getElementById('bot-count-val').textContent = slider.value;
     }
 
-    ['botMove', 'botArmor', 'obstacleDensity', 'targetDistance'].forEach(k => {
-      if (s[k]) this.selectOpt(k, s[k]);
+    ['botMove', 'botArmor', 'obstacleDensity', 'targetDistance', 'infiniteAmmo'].forEach(k => {
+      if (s[k] !== undefined) this.selectOpt(k, s[k]);
     });
   }
 

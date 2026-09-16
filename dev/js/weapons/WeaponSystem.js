@@ -14,6 +14,7 @@ class WeaponSystem {
     // 탄약 현재 상태
     this._ammo = {};            // weaponId → { mag, reserve }
 
+    this.infiniteAmmo = false;
     this._initAmmo();
 
     // 트레이서 & 파티클 버킷
@@ -22,6 +23,10 @@ class WeaponSystem {
 
     // 마지막 발사 이벤트 (GameManager가 킬 처리용)
     this.lastHitResult = null;
+  }
+
+  setInfiniteAmmo(enabled) {
+    this.infiniteAmmo = !!enabled;
   }
 
   // ── 탄약 초기화 ───────────────────────────────────────────
@@ -91,13 +96,15 @@ class WeaponSystem {
 
     // 탄약 체크
     const ammo = this._ammo[wId];
-    if (ammo.mag <= 0) {
+    if (!this.infiniteAmmo && ammo.mag <= 0) {
       this.startReload(wId);
       return null;
     }
 
     // 탄약 소모
-    ammo.mag--;
+    if (!this.infiniteAmmo) {
+      ammo.mag--;
+    }
 
     // 쿨다운 설정 (발사 속도)
     this._fireCooldowns[wId] = 1 / wData.fireRate;

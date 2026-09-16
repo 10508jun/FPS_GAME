@@ -277,72 +277,111 @@ class Bot {
     ctx.save();
     ctx.translate(this.x, this.y);
 
-    const displayColor = this.isDummy ? '#aaa' : (this.team === 'attacker' ? CONFIG.C.ALLY : CONFIG.C.ENEMY);
+    const displayColor = this.isDummy ? '#ff4655' : (this.team === 'attacker' ? CONFIG.C.ALLY : CONFIG.C.ENEMY);
     const flashAmt = Math.max(0, this.hitFlash);
 
-    ctx.shadowColor = displayColor;
-    ctx.shadowBlur  = 10 + flashAmt * 15;
+    // ── 사격장 전용 타겟 오라 & 지면 과녁 마크 ──
+    if (this.isDummy) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 70, 85, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, this.radius + 10, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     ctx.rotate(this.angle);
 
-    // 어깨
-    ctx.fillStyle = displayColor;
-    ctx.beginPath(); ctx.ellipse(-2, -9, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(-2, 9, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowColor = displayColor;
+    ctx.shadowBlur  = 12 + flashAmt * 18;
 
-    // 본체
+    // 어깨 패드 (Shoulder Armor)
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = displayColor;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(-3, -11, 7.5, 4, -0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-3, 11, 7.5, 4, 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // 몸통 (Body Core)
     ctx.beginPath();
     ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-    const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
-    bodyGrad.addColorStop(0, flashAmt > 0.5 ? '#fff' : displayColor);
-    bodyGrad.addColorStop(1, 'rgba(0,0,0,0.4)');
+    const bodyGrad = ctx.createRadialGradient(-2, -2, 0, 0, 0, this.radius);
+    bodyGrad.addColorStop(0, flashAmt > 0.5 ? '#ffffff' : (this.isDummy ? '#2d151c' : '#3a0f18'));
+    bodyGrad.addColorStop(0.7, '#0f172a');
+    bodyGrad.addColorStop(1, displayColor);
     ctx.fillStyle = bodyGrad;
+    ctx.fill();
+    ctx.stroke();
+
+    // 코어 원자로 (Glowing Core Unit)
+    ctx.fillStyle = flashAmt > 0.5 ? '#fff' : displayColor;
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 머리 (Head & Bullseye Visor)
+    ctx.save();
+    ctx.translate(4, 0);
+    ctx.beginPath();
+    ctx.arc(0, 0, this.radius * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#0f172a';
     ctx.fill();
     ctx.strokeStyle = displayColor;
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // 머리
-    ctx.save();
-    ctx.translate(3, 0);
+    // 헤드 과녁 / 붉은 센서 비전 (Bullseye Sensor)
+    ctx.fillStyle = flashAmt > 0.5 ? '#fff' : displayColor;
     ctx.beginPath();
-    ctx.arc(0, 0, this.radius * 0.45, 0, Math.PI * 2);
-    ctx.fillStyle = '#111';
+    ctx.arc(2, 0, 2.5, 0, Math.PI * 2);
     ctx.fill();
+
+    // 과녁 십자선 (Crosshair Visor Lines)
     ctx.strokeStyle = displayColor;
     ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.restore();
-
-    // 총
-    ctx.fillStyle = '#222';
-    ctx.fillRect(this.radius - 2, -2, 12, 4);
+    ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(5, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(2, -3); ctx.lineTo(2, 3); ctx.stroke();
 
     ctx.restore();
 
-    // 이름
+    // 총기 (Gun Model)
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(this.radius - 2, -2.5, 12, 5);
+    ctx.fillStyle = displayColor;
+    ctx.fillRect(this.radius + 10, -1.5, 3, 3);
+
+    ctx.restore();
+
+    // 마네킹 뱃지 / 헤드샷 전용 가이드
     ctx.save();
-    ctx.font = `700 10px ${CONFIG.FONT_HUD}`;
+    ctx.font = `700 11px ${CONFIG.FONT_HUD}`;
     ctx.textAlign = 'center';
-    ctx.fillStyle = this.isDummy ? '#aaa' : CONFIG.C.ENEMY;
-    ctx.fillText(this.isDummy ? 'BOT' : this.agentData.name, this.x, this.y - this.radius - 4);
+    ctx.fillStyle = displayColor;
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(this.isDummy ? 'TARGET DUMMY' : this.agentData.name, this.x, this.y - this.radius - 6);
     ctx.restore();
   }
 
   _renderDeadDummy(ctx) {
     ctx.save();
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle   = '#555';
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle   = '#334155';
+    ctx.strokeStyle = '#ff4655';
+    ctx.lineWidth   = 1;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fill(); ctx.stroke();
+    
     // 리스폰 타이머 표시
     const remaining = (this.respawnDelay - this.respawnTimer).toFixed(1);
-    ctx.globalAlpha = 0.8;
-    ctx.fillStyle   = '#fff';
-    ctx.font = `700 12px ${CONFIG.FONT_HUD}`;
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle   = '#ff4655';
+    ctx.font = `900 13px ${CONFIG.FONT_HUD}`;
     ctx.textAlign = 'center';
-    ctx.fillText(remaining + 's', this.x, this.y + 4);
+    ctx.fillText('RESPAWN IN ' + remaining + 's', this.x, this.y + 4);
     ctx.restore();
   }
 

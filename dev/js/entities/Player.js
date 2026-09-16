@@ -240,94 +240,139 @@ class Player {
     ctx.save();
     ctx.translate(this.x, this.y);
 
-    // ── 플레이어 본체 렌더링 ──
     const displayColor = isLocalPlayer ? CONFIG.C.ALLY : CONFIG.C.ENEMY;
-    const bodyColor    = this.isMoving ? displayColor : '#fff';
     const flashAmt     = Math.max(0, this.hitFlash);
 
-    // 1. 그림자/글로우
-    ctx.shadowColor = displayColor;
-    ctx.shadowBlur  = 12 + flashAmt * 15;
+    // ── 0. 지면 글로우 & 타겟팅 오라 ──
+    ctx.save();
+    const auraGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius + 16);
+    auraGrad.addColorStop(0, isLocalPlayer ? 'rgba(0, 212, 255, 0.25)' : 'rgba(255, 70, 85, 0.25)');
+    auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, this.radius + 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
 
-    // 2. 몸통 (Body)
     ctx.rotate(this.angle);
 
-    // 어깨
-    ctx.fillStyle = displayColor;
-    ctx.beginPath(); ctx.ellipse(-2, -9, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(-2, 9, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
+    // ── 1. 전술 조끼 & 어깨 장구 (Tactical Harness) ──
+    ctx.shadowColor = displayColor;
+    ctx.shadowBlur = 10 + flashAmt * 15;
 
-    // 본체
-    ctx.beginPath();
-    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-    const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
-    bodyGrad.addColorStop(0, flashAmt > 0.5 ? '#fff' : displayColor);
-    bodyGrad.addColorStop(1, 'rgba(0,0,0,0.4)');
-    ctx.fillStyle = bodyGrad;
-    ctx.fill();
+    // 어깨 패드
+    ctx.fillStyle = '#1e293b';
     ctx.strokeStyle = displayColor;
     ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(-3, -11, 8, 4.5, -0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-3, 11, 8, 4.5, 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // 본체 슈트 (Body Base)
+    ctx.beginPath();
+    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+    const bodyGrad = ctx.createRadialGradient(-3, -3, 0, 0, 0, this.radius);
+    bodyGrad.addColorStop(0, flashAmt > 0.5 ? '#ffffff' : (isLocalPlayer ? '#1e3a5f' : '#4a1525'));
+    bodyGrad.addColorStop(0.7, isLocalPlayer ? '#0f172a' : '#2b0b14');
+    bodyGrad.addColorStop(1, displayColor);
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
     ctx.stroke();
 
-    // 3. 머리 (Head)
+    // 흉갑 테두리 & 마그네틱 가슴 파우치
+    ctx.fillStyle = displayColor;
+    ctx.fillRect(-6, -4, 4, 8);
+
+    // ── 2. 사이버네틱 헬멧 & 바이저 (Cyber Visor) ──
     ctx.save();
-    ctx.translate(3, 0); // 머리 위치를 앞쪽으로 살짝 이동
+    ctx.translate(4, 0);
+
+    // 헬멧 셸
     ctx.beginPath();
-    ctx.arc(0, 0, this.radius * 0.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#111'; // 머리카락/헬멧 느낌의 어두운 색
+    ctx.arc(0, 0, this.radius * 0.55, 0, Math.PI * 2);
+    const helmetGrad = ctx.createLinearGradient(-5, -5, 5, 5);
+    helmetGrad.addColorStop(0, '#334155');
+    helmetGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = helmetGrad;
     ctx.fill();
     ctx.strokeStyle = displayColor;
     ctx.lineWidth = 1;
     ctx.stroke();
-    // 눈/바이저 (Visor)
-    ctx.fillStyle = displayColor;
-    ctx.fillRect(2, -4, 2, 8);
+
+    // LED 전술 바이저 (Glowing Visor)
+    ctx.shadowColor = displayColor;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = flashAmt > 0.5 ? '#fff' : displayColor;
+    ctx.beginPath();
+    ctx.arc(2, 0, 3, -1.2, 1.2);
+    ctx.fill();
+
+    // 바이저 반사 하이라이트
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.fillRect(3, -2, 1.5, 4);
     ctx.restore();
 
-    // 4. 총기 (Gun)
+    // ── 3. 총기 상세 고퀄 렌더링 ──
     const wData = WEAPON_DATA[this.currentWeapon];
-    const barrelLen = this.radius + (wData?.type === 'sniper' ? 18 : 12);
-    const barrelWidth = wData?.type === 'sniper' ? 4 : 3;
-    
-    ctx.fillStyle = '#222';
-    ctx.fillRect(this.radius - 2, -barrelWidth/2, barrelLen - this.radius + 2, barrelWidth);
-    
-    // 머즐 플래시 (총구 형태 추가)
+    const isSniper = wData?.type === 'sniper';
+    const isRifle  = wData?.type === 'rifle';
+    const barrelLen = this.radius + (isSniper ? 22 : isRifle ? 16 : 12);
+    const barrelWidth = isSniper ? 5 : 3.5;
+
+    // 총기 본체 (Receiver)
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(this.radius - 3, -barrelWidth/2 - 1, 10, barrelWidth + 2);
+
+    // 총열 (Barrel)
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(this.radius + 5, -barrelWidth/2, barrelLen - this.radius - 5, barrelWidth);
+
+    // 소총/스나이퍼 스코프 렌즈 (Scope Lens)
+    if (wData?.hasScope || isSniper) {
+      ctx.fillStyle = '#0d1525';
+      ctx.fillRect(this.radius + 2, -barrelWidth/2 - 3, 7, 3);
+      ctx.fillStyle = '#00d4ff';
+      ctx.fillRect(this.radius + 7, -barrelWidth/2 - 2.5, 1.5, 2);
+    }
+
+    // 총구 화염 소멸기 (Muzzle Brake / Flash Hider)
     ctx.fillStyle = displayColor;
     ctx.fillRect(barrelLen - 2, -barrelWidth/2 - 0.5, 3, barrelWidth + 1);
 
-    // 줌 효과 (오퍼레이터)
+    // 줌 효과 (오퍼레이터 / 조준 시 조준선)
     if (this.scoped) {
-      ctx.strokeStyle = '#ffffaa';
-      ctx.lineWidth   = 1;
+      ctx.strokeStyle = '#00d4ff';
+      ctx.lineWidth   = 1.5;
+      ctx.shadowColor = '#00d4ff';
+      ctx.shadowBlur  = 10;
       ctx.beginPath();
-      ctx.arc(0, 0, this.radius + 8, -0.4, 0.4);
+      ctx.arc(0, 0, this.radius + 10, -0.5, 0.5);
       ctx.stroke();
     }
 
     ctx.restore();
 
-    // 자세 링 (앉기)
+    // ── 4. 자세 링 & 보조 UI ──
     if (this.stance === 'crouch') {
       ctx.save();
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-      ctx.lineWidth   = 1;
+      ctx.strokeStyle = 'rgba(0, 212, 255, 0.6)';
+      ctx.lineWidth   = 1.5;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius + 3, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, this.radius + 5, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.setLineDash([]);
       ctx.restore();
     }
 
-    // 에이전트 이름 뱃지 (타 플레이어용)
+    // 에이전트 이름 뱃지
     if (!isLocalPlayer) {
       ctx.save();
-      ctx.font         = `700 10px ${CONFIG.FONT_HUD}`;
+      ctx.font         = `700 11px ${CONFIG.FONT_HUD}`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillStyle    = displayColor;
-      ctx.fillText(this.agentData.name, this.x, this.y - this.radius - 4);
+      ctx.shadowColor  = '#000';
+      ctx.shadowBlur   = 4;
+      ctx.fillText(this.agentData.name, this.x, this.y - this.radius - 6);
       ctx.restore();
     }
   }

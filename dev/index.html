@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FORGE — 전술 FPS 웹 게임</title>
+  <meta name="description" content="발로란트에서 영감을 받은 전술 FPS 브라우저 게임. 에이전트를 선택하고 전투에 참여하세요." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="menu-root">
+  <!-- 배경 캔버스 -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- 상단 네비 -->
+  <nav id="top-nav">
+    <div id="logo">FORGE</div>
+    <div id="nav-links">
+      <button class="nav-btn active" onclick="showSection('play')">플레이</button>
+      <button class="nav-btn" onclick="openRotationShop()">상점 🛍️</button>
+      <button class="nav-btn" onclick="openVPShop()">VP 충전 💎</button>
+    </div>
+    <div id="vp-display">
+      <div id="vp-icon"></div>
+      <span id="vp-amount">1000 VP</span>
+    </div>
+  </nav>
+
+  <!-- 본문 -->
+  <div id="menu-content">
+
+    <!-- 에이전트 목록 -->
+    <div id="agent-panel">
+      <div id="agent-panel-header">
+        <h2>에이전트 선택</h2>
+      </div>
+      <div id="agent-grid"></div>
+    </div>
+
+    <!-- 중앙 (게임 모드) -->
+    <div id="center-panel">
+      <div>
+        <p id="mode-select-title">게임 모드</p>
+        <div id="mode-grid">
+          <div class="mode-card" data-mode="standard" onclick="selectMode('standard')">
+            <span class="mode-icon">⚔️</span>
+            <div class="mode-name">일반전</div>
+            <div class="mode-desc">13라운드 선취 승리.<br>경제 시스템과 무기 구매가 핵심.</div>
+            <span class="mode-badge">무제한 경제</span>
+          </div>
+          <div class="mode-card" data-mode="competitive" onclick="selectMode('competitive')">
+            <span class="mode-icon">🏆</span>
+            <div class="mode-name">경쟁전</div>
+            <div class="mode-desc">13라운드 선취 승리.<br>랭크 매치 형식.</div>
+            <span class="mode-badge">랭크</span>
+          </div>
+          <div class="mode-card selected" data-mode="spikerush" onclick="selectMode('spikerush')">
+            <span class="mode-icon">⚡</span>
+            <div class="mode-name">신속 모드</div>
+            <div class="mode-desc">5라운드 선취 승리.<br>매 라운드 무기를 시스템이 지정.</div>
+            <span class="mode-badge">빠른 게임</span>
+          </div>
+          <div class="mode-card" data-mode="range" onclick="selectMode('range')">
+            <span class="mode-icon">🎯</span>
+            <div class="mode-name">사격장</div>
+            <div class="mode-desc">무한 리스폰 마네킹.<br>무기 대미지 수치를 확인하세요.</div>
+            <span class="mode-badge">연습</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="start-section">
+        <div id="team-select" style="margin-bottom: 20px; display: flex; gap: 10px; justify-content: center;">
+          <button class="team-size-btn" onclick="selectTeamSize(1)">1v1</button>
+          <button class="team-size-btn active" onclick="selectTeamSize(5)">5v5</button>
+        </div>
+        <button id="btn-start" onclick="startGame()">게임 시작</button>
+        <p style="margin-top:14px;font-size:12px;color:var(--text3)">WASD 이동 · 마우스 조준/사격 · Shift 걷기 · Ctrl 앉기 · B 상점</p>
+      </div>
+    </div>
+
+    <!-- 에이전트 상세 -->
+    <div id="agent-detail-panel">
+      <div id="detail-portrait">🌊</div>
+      <div id="detail-name">제트</div>
+      <div id="detail-country">🇰🇷 대한민국 · Duelist</div>
+      <div id="detail-lore"></div>
+      <div id="detail-abilities"></div>
+      <div id="detail-ult">
+        <div class="ult-header">
+          <span class="ult-name">궁극기</span>
+          <span class="ult-points">0/?</span>
+        </div>
+        <div class="ult-desc"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 로테이션 상점 오버레이 -->
+<div id="rotation-shop-overlay" style="display:none">
+  <div id="rotation-shop-panel">
+    <div id="rs-header">
+      <span id="rs-title">🛍️ 금일 스킨 상점</span>
+      <span id="rs-timer"></span>
+    </div>
+    <div id="rs-items"></div>
+    <div id="rs-footer">
+      <button class="btn-shop-action btn-cancel" onclick="closeRotationShop()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- VP 충전 오버레이 -->
+<div id="vp-shop-overlay" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.9);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;">
+  <div style="width:500px;background:var(--bg2);border-radius:14px;border:1px solid var(--border2);overflow:hidden;">
+    <div style="padding:20px 24px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h2 style="font-size:20px;font-weight:700;letter-spacing:2px">💎 VP 충전</h2>
+      <button onclick="closeVPShop()" style="background:transparent;border:none;color:rgba(255,255,255,0.4);font-size:22px;cursor:pointer">×</button>
+    </div>
+    <div id="vp-packages" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px;"></div>
+    <div style="padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">
+      * 이것은 프로토타입입니다. 실제 결제는 발생하지 않습니다.
+    </div>
+  </div>
+</div>
+
+<script src="assets/maps/mapData.js" defer></script>
+<script src="js/config.js" defer></script>
+<script src="js/weapons/WeaponData.js" defer></script>
+<script src="js/characters/AgentData.js" defer></script>
+<script src="js/systems/ShopSystem.js" defer></script>
+
+<script>
+// ── 메뉴 상태 ──────────────────────────────────────────────
+let selectedAgent = 'jett';
+let selectedMode  = 'spikerush';
+let selectedTeamSize = 5;
+let shopSys; // 전역 선언만 하고 DOMContentLoaded에서 초기화
+
+function selectTeamSize(size) {
+  selectedTeamSize = size;
+  document.querySelectorAll('.team-size-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.innerText) === size);
+  });
+}
+
+// ── 배경 파티클 ────────────────────────────────────────────
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx    = bgCanvas.getContext('2d');
+const particles = [];
+
+function resizeBg() {
+  bgCanvas.width  = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeBg);
+resizeBg();
+
+for (let i = 0; i < 80; i++) {
+  particles.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    r: Math.random() * 1.5 + 0.5,
+    vx: (Math.random() - 0.5) * 0.3,
+    vy: -Math.random() * 0.5 - 0.1,
+    alpha: Math.random() * 0.4 + 0.05,
+    color: Math.random() > 0.6 ? '#ff4655' : '#00d4ff',
+  });
+}
+
+function animateBg() {
+  bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+  // 그라디언트 배경
+  const grad = bgCtx.createRadialGradient(
+    bgCanvas.width * 0.3, bgCanvas.height * 0.4, 0,
+    bgCanvas.width * 0.5, bgCanvas.height * 0.5, bgCanvas.height,
+  );
+  grad.addColorStop(0, '#0d1e35');
+  grad.addColorStop(1, '#0b1220');
+  bgCtx.fillStyle = grad;
+  bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+  // 파티클
+  particles.forEach(p => {
+    p.x = (p.x + p.vx + bgCanvas.width)  % bgCanvas.width;
+    p.y = (p.y + p.vy + bgCanvas.height) % bgCanvas.height;
+    bgCtx.beginPath();
+    bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    bgCtx.fillStyle = p.color.replace(')', `,${p.alpha})`).replace('rgb', 'rgba').replace('#', '');
+    bgCtx.globalAlpha = p.alpha;
+    bgCtx.fillStyle = p.color;
+    bgCtx.fill();
+    bgCtx.globalAlpha = 1;
+  });
+
+  requestAnimationFrame(animateBg);
+}
+animateBg();
+
+// ── 에이전트 카드 생성 ─────────────────────────────────────
+function buildAgentGrid() {
+  const grid = document.getElementById('agent-grid');
+  grid.innerHTML = '';
+  Object.values(AGENT_DATA).forEach(agent => {
+    const card = document.createElement('div');
+    card.className = 'agent-card' + (agent.id === selectedAgent ? ' selected' : '');
+    card.dataset.id = agent.id;
+    card.style.setProperty('--agent-color', agent.color);
+
+    const roleColor = ROLE_COLORS[agent.role] || '#fff';
+    card.innerHTML = `
+      <span class="agent-country-tag">${agent.flag}</span>
+      <span class="agent-role-badge" style="background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44">
+        ${agent.role}
+      </span>
+      <div class="agent-portrait" style="color:${agent.color}">${agent.portrait}</div>
+      <div class="agent-name" style="color:${agent.color}">${agent.name}</div>
+      <div class="agent-flag">${agent.country}</div>
+    `;
+    card.style.background = `linear-gradient(160deg, ${agent.bgColor} 0%, #0b1220 100%)`;
+    card.addEventListener('click', () => selectAgent(agent.id));
+    grid.appendChild(card);
+  });
+}
+
+function selectAgent(id) {
+  selectedAgent = id;
+  document.querySelectorAll('.agent-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.id === id);
+  });
+  updateAgentDetail(AGENT_DATA[id]);
+}
+
+function updateAgentDetail(agent) {
+  document.getElementById('detail-portrait').textContent  = agent.portrait;
+  document.getElementById('detail-portrait').style.color  = agent.color;
+  document.getElementById('detail-name').textContent      = agent.name;
+  document.getElementById('detail-name').style.color      = agent.color;
+  document.getElementById('detail-country').textContent   = `${agent.flag} ${agent.country} · ${agent.role}`;
+  document.getElementById('detail-lore').textContent      = agent.lore;
+
+  const abDiv = document.getElementById('detail-abilities');
+  abDiv.innerHTML = '';
+  Object.entries(agent.abilities).forEach(([key, ab]) => {
+    const row = document.createElement('div');
+    row.className = 'ability-row';
+    const costText = ab.cost > 0 ? `¥${ab.cost}` : '무료';
+    const cdText   = ab.cooldown ? ` · ${ab.cooldown}s` : '';
+    row.innerHTML = `
+      <div class="ability-key">${ab.key}</div>
+      <div class="ability-info">
+        <div class="ability-name-row">
+          <span class="ability-name">${ab.name}</span>
+          <span class="ability-cost">${costText}${cdText}</span>
+        </div>
+        <div class="ability-desc">${ab.description}</div>
+      </div>
+    `;
+    abDiv.appendChild(row);
+  });
+
+  const ult = agent.ultimate;
+  const ultDiv = document.getElementById('detail-ult');
+  ultDiv.querySelector('.ult-name').textContent   = ult.name;
+  ultDiv.querySelector('.ult-points').textContent = `궁극기 포인트: ${ult.pointsRequired}`;
+  ultDiv.querySelector('.ult-desc').textContent   = ult.description;
+}
+
+// ── 모드 선택 ──────────────────────────────────────────────
+function selectMode(mode) {
+  selectedMode = mode;
+  document.querySelectorAll('.mode-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.mode === mode);
+  });
+}
+
+// ── 게임 시작 ──────────────────────────────────────────────
+function startGame() {
+  const params = new URLSearchParams({
+    agent: selectedAgent,
+    mode:  selectedMode,
+    teamSize: selectedTeamSize,
+  });
+  window.location.href = `game.html?${params}`;
+}
+
+// ── 로테이션 상점 ──────────────────────────────────────────
+function openRotationShop() {
+  const overlay = document.getElementById('rotation-shop-overlay');
+  overlay.style.display = 'flex';
+  renderRotationShop();
+}
+function closeRotationShop() {
+  document.getElementById('rotation-shop-overlay').style.display = 'none';
+}
+function renderRotationShop() {
+  document.getElementById('rs-timer').textContent = `갱신까지: ${shopSys.getTimeUntilRefresh()}`;
+  const container = document.getElementById('rs-items');
+  container.innerHTML = '';
+  shopSys.rotation.forEach(skin => {
+    const owned = shopSys.isOwned(skin.id);
+    const item  = document.createElement('div');
+    item.className = `rs-item${skin.rarity === 'premium' ? ' premium' : ''}`;
+    item.innerHTML = `
+      <div class="rs-item-rarity" style="color:${skin.color}">${skin.rarity === 'premium' ? '✨ PREMIUM' : 'STANDARD'}</div>
+      <div class="rs-item-icon">${skin.icon}</div>
+      <div class="rs-item-name" style="color:${skin.color}">${skin.name}</div>
+      <div class="rs-item-weapon">${WEAPON_DATA[skin.weapon]?.name || skin.weapon}</div>
+      <div class="rs-item-cost">${owned ? '✓ 보유중' : `💎 ${skin.cost} VP`}</div>
+      ${skin.rarity === 'premium' ? `<div style="font-size:10px;color:var(--text3);margin-top:4px">${skin.desc}</div>` : ''}
+    `;
+    if (!owned) {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', () => {
+        const result = shopSys.buySkin(skin.id);
+        if (result.ok) {
+          document.getElementById('vp-amount').textContent = `${shopSys.vp} VP`;
+          renderRotationShop();
+          alert(`✓ ${skin.name} 구매 완료!`);
+        } else {
+          alert(`✗ ${result.reason}`);
+        }
+      });
+    }
+    container.appendChild(item);
+  });
+  // 타이머 자동 갱신
+  setTimeout(() => {
+    const el = document.getElementById('rs-timer');
+    if (el) el.textContent = `갱신까지: ${shopSys.getTimeUntilRefresh()}`;
+  }, 1000);
+}
+
+// ── VP 상점 ────────────────────────────────────────────────
+function openVPShop() {
+  const overlay = document.getElementById('vp-shop-overlay');
+  overlay.style.display = 'flex';
+  const cont = document.getElementById('vp-packages');
+  cont.innerHTML = '';
+  ShopSystem.VP_PACKAGES.forEach(pkg => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s';
+    card.innerHTML = `
+      <div style="font-size:28px;font-weight:900;color:var(--gold)">${(pkg.vp + pkg.bonus).toLocaleString()}</div>
+      <div style="font-size:11px;color:var(--text3);margin:4px 0">VP${pkg.bonus > 0 ? ` (+${pkg.bonus} 보너스)` : ''}</div>
+      <div style="font-size:15px;font-weight:700;margin-top:8px">₩${pkg.price.toLocaleString()}</div>
+    `;
+    card.addEventListener('mouseenter', () => card.style.borderColor = 'var(--gold)');
+    card.addEventListener('mouseleave', () => card.style.borderColor = 'var(--border)');
+    card.addEventListener('click', () => {
+      const total = pkg.vp + pkg.bonus;
+      shopSys.chargeVP(total);
+      document.getElementById('vp-amount').textContent = `${shopSys.vp} VP`;
+      alert(`✓ ${total.toLocaleString()} VP 충전 완료! (테스트 모드)`);
+    });
+    cont.appendChild(card);
+  });
+}
+function closeVPShop() {
+  document.getElementById('vp-shop-overlay').style.display = 'none';
+}
+
+// ── 초기화 ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  shopSys = new ShopSystem(); // 여기서 초기화
+  document.getElementById('vp-amount').textContent = `${shopSys.vp} VP`;
+  buildAgentGrid();
+  updateAgentDetail(AGENT_DATA[selectedAgent]);
+  selectMode('spikerush');
+});
+</script>
+</body>
+</html>

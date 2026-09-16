@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FORGE — 인게임</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { overflow: hidden; margin: 0; }
+    #gameCanvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      display: block; cursor: crosshair;
+    }
+    /* 로딩 화면 */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #0b1220;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 24px;
+      transition: opacity 0.5s ease-out;
+    }
+    .loader {
+      width: 60px; height: 60px;
+      border: 3px solid rgba(255, 70, 85, 0.2);
+      border-top-color: #ff4655;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-logo {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 52px; font-weight: 900; letter-spacing: 12px;
+      background: linear-gradient(90deg, #ff4655, #00d4ff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    #loading-text {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 12px; letter-spacing: 4px;
+      color: rgba(255,255,255,0.3); text-transform: uppercase;
+    }
+    /* 게임 내 키 가이드 (일시적) */
+    #key-guide {
+      position: fixed; bottom: 120px; right: 20px; z-index: 50;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px; padding: 10px 14px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px; color: rgba(255,255,255,0.4);
+      line-height: 1.8; pointer-events: none;
+      transition: opacity 0.5s; opacity: 1;
+    }
+    #key-guide.hidden { opacity: 0; }
+    .key-row { display: flex; justify-content: space-between; gap: 20px; }
+    .key-tag {
+      background: rgba(255,255,255,0.1); border-radius: 3px;
+      padding: 1px 6px; font-weight: 700; color: rgba(255,255,255,0.6);
+      font-size: 10px; margin-right: 4px;
+    }
+    #btn-exit-game {
+      position: fixed; top: 20px; right: 20px; z-index: 100;
+      padding: 8px 16px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+      color: rgba(255,255,255,0.4);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    #btn-exit-game:hover {
+      background: #ff4655; color: #fff;
+      border-color: #ff4655;
+    }
+  </style>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- 에러 표시 오버레이 (디버그용) -->
+  <div id="error-overlay" style="
+    display:none; position:fixed; inset:0; z-index:99999;
+    background:rgba(0,0,0,0.92); color:#ff4655;
+    font-family:monospace; font-size:13px;
+    padding:40px; overflow-y:auto;
+    white-space:pre-wrap; word-break:break-all;
+  "></div>
+  <script>
+    window.onerror = function(msg, src, line, col, err) {
+      var el = document.getElementById('error-overlay');
+      if (el) {
+        el.style.display = 'block';
+        el.textContent += '❌ ERROR: ' + msg + '\n   파일: ' + src + '\n   줄: ' + line + ':' + col + '\n\n';
+      }
+      return false;
+    };
+    window.addEventListener('unhandledrejection', function(e) {
+      var el = document.getElementById('error-overlay');
+      if (el) {
+        el.style.display = 'block';
+        el.textContent += '❌ PROMISE ERROR: ' + e.reason + '\n\n';
+      }
+    });
+  </script>
+  <!-- 로딩 화면 -->
+  <div id="loading-screen">
+    <div id="loading-logo">FORGE</div>
+    <div class="loader"></div>
+    <div id="loading-text">전술 시뮬레이션 로딩 중...</div>
+  </div>
+
+  <!-- 게임 캔버스 -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- 키 가이드 -->
+  <div id="key-guide">
+    <div class="key-row"><span><span class="key-tag">WASD</span>이동</span><span><span class="key-tag">Shift</span>걷기(무소음)</span></div>
+    <div class="key-row"><span><span class="key-tag">Ctrl</span>앉기</span><span><span class="key-tag">마우스</span>조준/사격</span></div>
+    <div class="key-row"><span><span class="key-tag">B</span>구매 상점</span><span><span class="key-tag">R</span>재장전</span></div>
+    <div class="key-row"><span><span class="key-tag">C/Q/E</span>스킬</span><span><span class="key-tag">X</span>궁극기</span></div>
+    <div class="key-row"><span><span class="key-tag">Tab</span>스코어보드</span><span><span class="key-tag">1-5</span>무기 전환</span></div>
+    <div class="key-row"><span><span class="key-tag">ESC</span>메인 메뉴(초기화)</span></div>
+  </div>
+
+  <button id="btn-exit-game" onclick="location.href='index.html'">EXIT GAME</button>
+
+  <!-- ── 스크립트 로드 순서 (defer 없이 순서 보장) ── -->
+  <!-- 1. 데이터 -->
+  <script src="assets/maps/mapData.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/weapons/WeaponData.js"></script>
+  <script src="js/characters/AgentData.js"></script>
+
+  <!-- 2. 파티클 & 비주얼 -->
+  <script src="js/entities/Bullet.js"></script>
+  <script src="js/ui/DamageText.js"></script>
+
+  <!-- 3. 시스템 보조 -->
+  <script src="js/InputHandler.js"></script>
+  <script src="js/weapons/WallbangSystem.js"></script>
+  <script src="js/systems/AudioSystem.js"></script>
+  <script src="js/systems/NetworkManager.js"></script>
+
+  <!-- 4. 엔티티 -->
+  <script src="js/entities/Player.js"></script>
+  <script src="js/entities/Bot.js"></script>
+
+  <!-- 5. 무기 & 스킬 -->
+  <script src="js/weapons/WeaponSystem.js"></script>
+  <script src="js/characters/AbilitySystem.js"></script>
+
+  <!-- 6. 게임 시스템 -->
+  <script src="js/systems/EconomySystem.js"></script>
+  <script src="js/systems/RoundSystem.js"></script>
+  <script src="js/systems/ShopSystem.js"></script>
+  <script src="js/systems/MinimapSystem.js"></script>
+
+  <!-- 7. UI -->
+  <script src="js/ui/HUD.js"></script>
+  <script src="js/ui/ShopUI.js"></script>
+
+  <!-- 8. 매니저 & 진입점 -->
+  <script src="js/GameManager.js"></script>
+  <script src="js/main.js"></script>
+
+  <script>
+    // 키 가이드 10초 후 숨기기
+    setTimeout(() => {
+      const kg = document.getElementById('key-guide');
+      if (kg) kg.classList.add('hidden');
+    }, 10000);
+  </script>
+</body>
+</html>

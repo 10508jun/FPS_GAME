@@ -21,8 +21,16 @@ class GameManager {
     this.audio   = new AudioSystem();
     this.shopSys = new ShopSystem();
 
+    // 사격장 맵 매니저
+    this.rangeMapMgr = typeof RangeMapManager !== 'undefined' ? new RangeMapManager() : null;
+    if (this.gameMode === 'range' && this.rangeMapMgr) {
+      this.mapData = this.rangeMapMgr.generateMapData();
+    } else {
+      this.mapData = MAP_DATA;
+    }
+
     // 맵 & 벽관통
-    this.wallbang = new WallbangSystem(MAP_DATA.walls);
+    this.wallbang = new WallbangSystem(this.mapData.walls);
 
     // 대미지 텍스트
     this.dmgText = new DamageTextSystem();
@@ -31,7 +39,7 @@ class GameManager {
     this.camera = { x: 0, y: 0 };
 
     // ── 플레이어 생성 ────────────────────────────────────────
-    const spawn = MAP_DATA.spawns.attacker[0];
+    const spawn = (this.mapData.spawns && this.mapData.spawns.attacker[0]) || { x: 1000, y: 1000 };
     this.player  = new Player(spawn.x, spawn.y, this.agentId, 'attacker');
     this.player.equipWeapon('ghost'); // 기본 권총
 
@@ -54,7 +62,7 @@ class GameManager {
     this._setupRoundCallbacks();
 
     // ── 미니맵 ───────────────────────────────────────────────
-    this.minimap = new MinimapSystem(MAP_DATA);
+    this.minimap = new MinimapSystem(this.mapData);
 
     // ── 네트워킹 (멀티플레이어) ──────────────────────────────
     this.network = new NetworkManager(this);
@@ -82,24 +90,46 @@ class GameManager {
     this.rangeHeadshots = 0;
   }
 
+  // ── 사격장 맵 라이브 리로드 ─────────────────────────────────
+  reloadRangeMap(newSettings) {
+    if (this.gameMode !== 'range' || !this.rangeMapMgr) return;
+    this.mapData = this.rangeMapMgr.generateMapData(newSettings);
+    this.wallbang = new WallbangSystem(this.mapData.walls);
+    if (this.weaponSys) this.weaponSys.wallbang = this.wallbang;
+    this.minimap = new MinimapSystem(this.mapData);
+
+    const spawn = (this.mapData.spawns && this.mapData.spawns.attacker[0]) || { x: 1000, y: 1000 };
+    this.player.respawn(spawn.x, spawn.y);
+    this._spawnBots();
+
+    const presetName = RangeMapManager.PRESETS[newSettings.preset]?.name || newSettings.preset;
+    if (this.hud) {
+      this.hud.notify(`🎯 사격장 [${presetName}] 적용 완료!`, CONFIG.C.CYAN);
+    }
+  }
+
   // ── 봇 스폰 ──────────────────────────────────────────────
   _spawnBots() {
+    this.bots = [];
     if (this.gameMode === 'range') {
-      // 사격장: 마네킹 4개
-      const positions = [
-        { x: 500, y: 500 }, { x: 650, y: 500 },
-        { x: 500, y: 650 }, { x: 650, y: 650 },
-      ];
-      positions.forEach((pos, i) => {
-        const agents = Object.keys(AGENT_DATA);
-        const bot = new Bot(pos.x, pos.y, 'defender',
-          agents[i % agents.length], true);
+      const spawns = (this.mapData.spawns && this.mapData.spawns.defender) || [];
+      const agents = Object.keys(AGENT_DATA);
+      const settings = this.rangeMapMgr ? this.rangeMapMgr.settings : {};
+
+      spawns.forEach((pos, i) => {
+        const bot = new Bot(pos.x, pos.y, 'defender', agents[i % agents.length], true);
+        if (settings.botArmor === 'heavy' && typeof bot.equipArmor === 'function') {
+          bot.equipArmor('heavy');
+        }
+        if (settings.botMove === 'strafe') {
+          bot.state = 'patrol'; // patrol movement
+        }
         this.bots.push(bot);
       });
     } else {
       // 일반/경쟁/신속: 적 봇 설정
-      const enemySpawns = MAP_DATA.spawns.defender;
-      const allySpawns  = MAP_DATA.spawns.attacker;
+      const enemySpawns = this.mapData.spawns.defender;
+      const allySpawns  = this.mapData.spawns.attacker;
       const agents      = Object.keys(AGENT_DATA);
 
       // 적팀 스폰
@@ -118,7 +148,7 @@ class GameManager {
       if (this.teamSize > 1) {
         const allyBotCount = this.teamSize - 1;
         for (let i = 0; i < allyBotCount; i++) {
-          const sp = allySpawns[(i + 1) % allySpawns.length]; // i + 1 to avoid player spawn point
+          const sp = allySpawns[(i + 1) % allySpawns.length];
           const bot = new Bot(
             sp.x + (Math.random() - 0.5) * 80,
             sp.y + (Math.random() - 0.5) * 80,
@@ -210,8 +240,13 @@ class GameManager {
 
     // 상점 열기/닫기
     if (this.input.justPressed('KeyB')) this.shopUI.toggle();
+    if (this.gameMode === 'range' && (this.input.justPressed('KeyM') || this.input.justPressed('KeyN'))) {
+      if (window.rangeModalUI) window.rangeModalUI.open();
+    }
     if (this.input.justPressed('Escape')) {
-      if (this.shopUI.visible) {
+      if (window.rangeModalUI && document.getElementById('range-settings-overlay')?.style.display === 'flex') {
+        window.rangeModalUI.close();
+      } else if (this.shopUI.visible) {
         this.shopUI.hide();
       } else {
         window.location.href = 'index.html'; // 상점이 닫혀있을 때 ESC 누르면 메뉴로 나가기
@@ -233,7 +268,7 @@ class GameManager {
     }
 
     // ── 플레이어 업데이트 ──
-    this.player.update(dt, this.input, MAP_DATA.walls, this.audio);
+    this.player.update(dt, this.input, this.mapData.walls, this.audio);
     this.input.updateCamera(this.camera.x, this.camera.y);
 
     // ── 발사 ──
@@ -289,7 +324,7 @@ class GameManager {
     }
 
     // ── 봇 업데이트 ──
-    this.bots.forEach(bot => bot.update(dt, MAP_DATA.walls, this.player, this.audio));
+    this.bots.forEach(bot => bot.update(dt, this.mapData.walls, this.player, this.audio));
 
     // ── 시스템 업데이트 ──
     this.weaponSys.update(dt);
@@ -393,7 +428,8 @@ class GameManager {
       site_a: '#101a10', site_b: '#10101a', site_c: '#1a1010',
       corridor: '#0f1420', mid: '#0e1218',
     };
-    for (const f of MAP_DATA.floors) {
+    const floors = (this.mapData && this.mapData.floors) || [];
+    for (const f of floors) {
       ctx.fillStyle = floorColors[f.type] || '#0f1420';
       ctx.fillRect(f.x, f.y, f.w, f.h);
       // 그리드 패턴
@@ -420,7 +456,8 @@ class GameManager {
     }
 
     // 벽
-    for (const w of MAP_DATA.walls) {
+    const walls = (this.mapData && this.mapData.walls) || [];
+    for (const w of walls) {
       const rh = w.h || w.height || 30;
       if (w.type === 'cover') {
         ctx.fillStyle = '#374151';
@@ -440,7 +477,8 @@ class GameManager {
   }
 
   _renderSiteLabels(ctx) {
-    for (const [key, site] of Object.entries(MAP_DATA.sites)) {
+    const sites = (this.mapData && this.mapData.sites) || {};
+    for (const [key, site] of Object.entries(sites)) {
       const colors = { A: '#2ecc7133', B: '#3498db33', C: '#e74c3c33' };
       ctx.fillStyle = colors[key] || 'rgba(255,255,255,0.05)';
       ctx.fillRect(site.x, site.y, site.w, site.h);

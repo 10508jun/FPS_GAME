@@ -74,6 +74,7 @@
           <button class="team-size-btn" onclick="selectTeamSize(1)">1v1</button>
           <button class="team-size-btn active" onclick="selectTeamSize(5)">5v5</button>
         </div>
+        <button id="btn-range-custom" onclick="openRangeModal()" style="display:none; margin-bottom:12px; background:var(--surface2); border:1px solid var(--cyan); color:var(--cyan); padding:10px 20px; border-radius:4px; font-weight:700; cursor:pointer; font-family:var(--font-main); font-size:14px;">⚙️ 사격장 맵 & 훈련 설정 창 열기</button><br>
         <button id="btn-start" onclick="startGame()">게임 시작</button>
         <p style="margin-top:14px;font-size:12px;color:var(--text3)">WASD 이동 · 마우스 조준/사격 · Shift 걷기 · Ctrl 앉기 · B 상점</p>
       </div>
@@ -130,6 +131,8 @@
 <script src="js/weapons/WeaponData.js" defer></script>
 <script src="js/characters/AgentData.js" defer></script>
 <script src="js/systems/ShopSystem.js" defer></script>
+<script src="js/systems/RangeMapManager.js" defer></script>
+<script src="js/ui/RangeModalUI.js" defer></script>
 
 <script>
 // ── 메뉴 상태 ──────────────────────────────────────────────
@@ -268,11 +271,22 @@ function updateAgentDetail(agent) {
 }
 
 // ── 모드 선택 ──────────────────────────────────────────────
+function openRangeModal() {
+  if (!window.rangeModalUI) {
+    window.rangeModalUI = new RangeModalUI();
+  }
+  window.rangeModalUI.open();
+}
+
 function selectMode(mode) {
   selectedMode = mode;
   document.querySelectorAll('.mode-card').forEach(c => {
     c.classList.toggle('selected', c.dataset.mode === mode);
   });
+  const btnRange = document.getElementById('btn-range-custom');
+  if (btnRange) {
+    btnRange.style.display = mode === 'range' ? 'inline-block' : 'none';
+  }
 }
 
 // ── 게임 시작 ──────────────────────────────────────────────

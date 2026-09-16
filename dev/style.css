@@ -621,3 +621,102 @@ html, body {
   #agent-panel { width: 220px; min-width: 220px; }
   #mode-grid { grid-template-columns: 1fr; }
 }
+
+/* ── 사격장 커스터마이저 모달 ── */
+#range-settings-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(5, 10, 20, 0.85); backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center;
+}
+#range-settings-panel {
+  width: min(780px, 94vw); max-height: 90vh;
+  background: var(--bg2); border-radius: var(--radius-lg);
+  border: 1px solid var(--cyan-glow);
+  box-shadow: 0 0 40px rgba(0, 212, 255, 0.15);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#range-modal-header {
+  padding: 18px 26px; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+#range-modal-title {
+  font-size: 20px; font-weight: 700; letter-spacing: 2px;
+  color: #fff; display: flex; align-items: center; gap: 10px;
+}
+.modal-close-btn {
+  background: transparent; border: none; color: var(--text3);
+  font-size: 24px; cursor: pointer; transition: var(--trans);
+}
+.modal-close-btn:hover { color: var(--red); transform: scale(1.2); }
+#range-modal-body {
+  padding: 24px; overflow-y: auto; flex: 1;
+}
+.range-section-title {
+  font-size: 13px; font-weight: 700; letter-spacing: 2px;
+  color: var(--cyan); text-transform: uppercase; margin-bottom: 12px;
+}
+#range-preset-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;
+}
+.range-preset-card {
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: var(--radius); padding: 14px 12px;
+  text-align: center; cursor: pointer; transition: var(--trans);
+}
+.range-preset-card:hover { border-color: var(--cyan); transform: translateY(-2px); }
+.range-preset-card.active {
+  border-color: var(--cyan); background: var(--surface2);
+  box-shadow: 0 0 16px var(--cyan-glow);
+}
+.preset-icon { font-size: 28px; margin-bottom: 6px; }
+.preset-name { font-size: 14px; font-weight: 700; color: #fff; }
+.preset-desc { font-size: 11px; color: var(--text2); margin-top: 4px; line-height: 1.3; }
+
+#range-options-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px;
+}
+@media (max-width: 650px) { #range-options-grid { grid-template-columns: 1fr; } }
+
+.option-group {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px;
+}
+.option-group label {
+  display: block; font-size: 12px; font-weight: 600; color: var(--text);
+  margin-bottom: 10px;
+}
+.option-group input[type="range"] {
+  width: 100%; accent-color: var(--cyan); cursor: pointer;
+}
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.opt-btn {
+  flex: 1; min-width: 70px; padding: 7px 10px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text2); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: var(--trans); text-align: center;
+}
+.opt-btn:hover { border-color: var(--border2); color: #fff; }
+.opt-btn.active {
+  background: var(--cyan); border-color: var(--cyan); color: #0b1220; font-weight: 700;
+}
+
+#range-modal-footer {
+  padding: 16px 26px; background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 12px;
+}
+.btn-primary {
+  padding: 10px 24px; background: linear-gradient(90deg, var(--cyan-dark), var(--cyan));
+  border: none; border-radius: var(--radius-sm); color: #0b1220;
+  font-size: 14px; font-weight: 700; font-family: var(--font-main);
+  letter-spacing: 1px; cursor: pointer; transition: var(--trans);
+}
+.btn-primary:hover { transform: scale(1.03); box-shadow: 0 0 20px var(--cyan-glow); }
+.btn-secondary {
+  padding: 10px 20px; background: transparent; border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); color: var(--text2);
+  font-size: 13px; font-family: var(--font-main); cursor: pointer; transition: var(--trans);
+}
+.btn-secondary:hover { border-color: var(--text); color: #fff; }
+

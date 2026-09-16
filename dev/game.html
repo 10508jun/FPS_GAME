@@ -121,9 +121,10 @@
     <div class="key-row"><span><span class="key-tag">B</span>구매 상점</span><span><span class="key-tag">R</span>재장전</span></div>
     <div class="key-row"><span><span class="key-tag">C/Q/E</span>스킬</span><span><span class="key-tag">X</span>궁극기</span></div>
     <div class="key-row"><span><span class="key-tag">Tab</span>스코어보드</span><span><span class="key-tag">1-5</span>무기 전환</span></div>
-    <div class="key-row"><span><span class="key-tag">ESC</span>메인 메뉴(초기화)</span></div>
+    <div class="key-row"><span><span class="key-tag">M</span>사격장 맵/설정 변경</span><span><span class="key-tag">ESC</span>메인 메뉴</span></div>
   </div>
 
+  <button id="btn-range-modal" onclick="if(window.rangeModalUI)window.rangeModalUI.open();" style="display:none; position:fixed; top:20px; right:130px; z-index:100; padding:8px 16px; background:rgba(0,212,255,0.2); border:1px solid #00d4ff; border-radius:4px; color:#00d4ff; font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all 0.2s;">🎯 맵/설정 변경 (M)</button>
   <button id="btn-exit-game" onclick="location.href='index.html'">EXIT GAME</button>
 
   <!-- ── 스크립트 로드 순서 (defer 없이 순서 보장) ── -->
@@ -156,10 +157,12 @@
   <script src="js/systems/RoundSystem.js"></script>
   <script src="js/systems/ShopSystem.js"></script>
   <script src="js/systems/MinimapSystem.js"></script>
+  <script src="js/systems/RangeMapManager.js"></script>
 
   <!-- 7. UI -->
   <script src="js/ui/HUD.js"></script>
   <script src="js/ui/ShopUI.js"></script>
+  <script src="js/ui/RangeModalUI.js"></script>
 
   <!-- 8. 매니저 & 진입점 -->
   <script src="js/GameManager.js"></script>

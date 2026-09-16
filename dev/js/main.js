@@ -12,6 +12,17 @@
 
   // GameManager 생성
   const gm = new GameManager(canvas);
+  window.gm = gm;
+
+  // 사격장 모드인 경우 모달 UI 초기화 및 버튼 노출
+  if (gm.gameMode === 'range') {
+    if (typeof RangeModalUI !== 'undefined') {
+      window.rangeModalUI = new RangeModalUI(gm);
+      window.rangeModalUI.init();
+    }
+    const btnRange = document.getElementById('btn-range-modal');
+    if (btnRange) btnRange.style.display = 'block';
+  }
 
   // 마우스 클릭 → GameManager 전달
   canvas.addEventListener('mousedown', e => {

@@ -115,7 +115,6 @@ class Player {
     }
 
     // 줌 토글 (우클릭)
-    const wData = WEAPON_DATA[this.currentWeapon];
     if (input.mouse.right && wData && wData.hasScope) {
       this.scoped = true;
     } else {

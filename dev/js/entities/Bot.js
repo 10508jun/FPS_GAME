@@ -183,15 +183,36 @@ class Bot {
   }
 
   // ── 발사 ─────────────────────────────────────────────────
+  _hasLOS(sx, sy, ex, ey, walls) {
+    const dx = ex - sx, dy = ey - sy;
+    for (const rect of walls) {
+      if (!rect.solid) continue;
+      const rh = rect.h || rect.height || 30;
+      let hit = false;
+      const tests = [rect.x, rect.x + rect.w, rect.y, rect.y + rh];
+      for (let i = 0; i < 4; i++) {
+        const isX = i < 2;
+        const delta = isX ? dx : dy;
+        if (Math.abs(delta) < 0.0001) continue;
+        const tVal = (tests[i] - (isX ? sx : sy)) / delta;
+        if (tVal >= 0 && tVal <= 1) {
+          const ix = sx + tVal * dx;
+          const iy = sy + tVal * dy;
+          if (ix >= rect.x - 0.5 && ix <= rect.x + rect.w + 0.5 &&
+              iy >= rect.y - 0.5 && iy <= rect.y + rh + 0.5) {
+            hit = true;
+            break;
+          }
+        }
+      }
+      if (hit) return false;
+    }
+    return true;
+  }
+
   _fireAtPlayer(player, walls, audio) {
     if (!player.alive) return;
-    // 간단한 LOS 체크 (벽 있으면 못 쏨)
-    const hasLOS = !walls.some(w => {
-      if (!w.solid) return false;
-      const hits = _lineAABBSimple(this.x, this.y, player.x, player.y, w);
-      return hits;
-    });
-    if (!hasLOS) return;
+    if (!this._hasLOS(this.x, this.y, player.x, player.y, walls)) return;
 
     // 대미지
     const wData = WEAPON_DATA[this.currentWeapon] || WEAPON_DATA['vandal'];

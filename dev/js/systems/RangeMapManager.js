@@ -142,48 +142,61 @@ class RangeMapManager {
     map.spawns.defender = this._calcBotPositions(1000, 1400, s);
   }
 
-  // 2. 롱 사격장
+  // 2. 롱 사격장 (넓고 시야 확보)
   _buildAlleyMap(map, s) {
-    map.worldW = 2000; map.worldH = 2400;
-    map.floors.push({ x: 700, y: 300, w: 600, h: 1700, type: 'corridor', color: '#111827', label: 'LONG ALLEY' });
+    map.worldW = 2400; map.worldH = 2400;
+    map.floors.push({ x: 500, y: 200, w: 1400, h: 1800, type: 'corridor', color: '#111827', label: 'LONG ALLEY' });
     map.walls.push(
-      { x: 670, y: 270, w: 660, h: 30, solid: true },
-      { x: 670, y: 1970, w: 660, h: 30, solid: true },
-      { x: 670, y: 270, w: 30, h: 1730, solid: true },
-      { x: 1300, y: 270, w: 30, h: 1730, solid: true }
+      { x: 470, y: 170, w: 1460, h: 30, solid: true },
+      { x: 470, y: 1970, w: 1460, h: 30, solid: true },
+      { x: 470, y: 170, w: 30, h: 1830, solid: true },
+      { x: 1900, y: 170, w: 30, h: 1830, solid: true }
     );
     // 엄폐물
     if (s.obstacleDensity === 'medium' || s.obstacleDensity === 'high') {
       map.walls.push(
-        { x: 750, y: 1100, w: 100, h: 50, solid: true, type: 'cover' },
-        { x: 1150, y: 800, w: 100, h: 50, solid: true, type: 'cover' }
+        { x: 650, y: 1100, w: 100, h: 50, solid: true, type: 'cover' },
+        { x: 1500, y: 800, w: 100, h: 50, solid: true, type: 'cover' }
       );
     }
-    map.spawns.attacker = [{ x: 1000, y: 1800 }];
-    map.spawns.defender = this._calcBotPositions(1000, 1800, s, 'alley');
+    map.spawns.attacker = [{ x: 1200, y: 1800 }];
+    map.spawns.defender = this._calcBotPositions(1200, 1800, s, 'alley');
   }
 
-  // 3. 360도 원형 훈련장
+  // 3. 360도 원형 훈련장 (원형 경계)
   _buildArena360Map(map, s) {
-    map.worldW = 2000; map.worldH = 2000;
-    map.floors.push({ x: 400, y: 400, w: 1200, h: 1200, type: 'mid', color: '#101722', label: '360° ARENA' });
-    map.walls.push(
-      { x: 370, y: 370, w: 1260, h: 30, solid: true },
-      { x: 370, y: 1570, w: 1260, h: 30, solid: true },
-      { x: 370, y: 370, w: 30, h: 1230, solid: true },
-      { x: 1600, y: 370, w: 30, h: 1230, solid: true }
-    );
+    map.worldW = 2400; map.worldH = 2400;
+    map.floors.push({ x: 400, y: 400, w: 1600, h: 1600, type: 'mid', color: '#101722', label: '360° ARENA' });
+    // 원형 경계를 위한 8각형 벽 배치 (16면체 근사)
+    const cx = 1200, cy = 1200, radius = 700;
+    const sides = 16;
+    for (let i = 0; i < sides; i++) {
+      const a1 = (i / sides) * Math.PI * 2;
+      const a2 = ((i + 1) / sides) * Math.PI * 2;
+      const x1 = cx + Math.cos(a1) * radius;
+      const y1 = cy + Math.sin(a1) * radius;
+      const x2 = cx + Math.cos(a2) * radius;
+      const y2 = cy + Math.sin(a2) * radius;
+      // 벽 세그먼트를 박스로 근사
+      const wx = Math.min(x1, x2) - 15;
+      const wy = Math.min(y1, y2) - 15;
+      const ww = Math.abs(x2 - x1) + 30;
+      const wh = Math.abs(y2 - y1) + 30;
+      map.walls.push({ x: wx, y: wy, w: Math.max(ww, 30), h: Math.max(wh, 30), solid: true });
+    }
     // 중앙 기둥 4개
     if (s.obstacleDensity !== 'none') {
       map.walls.push(
-        { x: 750, y: 750, w: 70, h: 70, solid: true, type: 'cover' },
-        { x: 1180, y: 750, w: 70, h: 70, solid: true, type: 'cover' },
-        { x: 750, y: 1180, w: 70, h: 70, solid: true, type: 'cover' },
-        { x: 1180, y: 1180, w: 70, h: 70, solid: true, type: 'cover' }
+        { x: 950, y: 950, w: 70, h: 70, solid: true, type: 'cover' },
+        { x: 1380, y: 950, w: 70, h: 70, solid: true, type: 'cover' },
+        { x: 950, y: 1380, w: 70, h: 70, solid: true, type: 'cover' },
+        { x: 1380, y: 1380, w: 70, h: 70, solid: true, type: 'cover' }
       );
     }
-    map.spawns.attacker = [{ x: 1000, y: 1000 }];
-    map.spawns.defender = this._calcBotPositions(1000, 1000, s, 'circle');
+    // 원형 맵 경계 메타데이터 (봇 이탈 방지용)
+    map._circularBounds = { cx, cy, radius: radius - 30 };
+    map.spawns.attacker = [{ x: cx, y: cy }];
+    map.spawns.defender = this._calcBotPositions(cx, cy, s, 'circle');
   }
 
   // 4. 피킹 미로 훈련장

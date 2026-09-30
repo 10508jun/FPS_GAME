@@ -21,6 +21,17 @@ class WeaponSystem {
     this.bullets  = [];   // Bullet 인스턴스
     this.impacts  = [];   // ImpactParticle 인스턴스
 
+    // 킬 피니셔 파티클
+    this.finishers = [];
+
+    // 반동 시스템 (Recoil Accumulation)
+    this.recoilAccum = 0;       // 현재 누적 반동
+    this.recoilDecay = 4.0;     // 초당 반동 감소율
+    this.consecutiveShots = 0;  // 연속 사격 카운터
+
+    // 반자동 무기 발사 플래그 (한 번 누르면 한 발)
+    this._semiAutoFired = {};   // weaponId → boolean
+
     // 마지막 발사 이벤트 (GameManager가 킬 처리용)
     this.lastHitResult = null;
   }
@@ -64,9 +75,18 @@ class WeaponSystem {
         this._reloading[id] = null;
       }
     }
+    // 반동 자연 감소
+    if (this.recoilAccum > 0) {
+      this.recoilAccum = Math.max(0, this.recoilAccum - this.recoilDecay * dt);
+    }
+    if (this.consecutiveShots > 0 && this.recoilAccum < 0.01) {
+      this.consecutiveShots = 0;
+    }
     // 트레이서 & 파티클 업데이트
     this.bullets = this.bullets.filter(b => { b.update(dt); return !b.dead; });
     this.impacts = this.impacts.filter(p => { p.update(dt); return !p.dead; });
+    // 킬 피니셔 업데이트
+    this.finishers = this.finishers.filter(f => { f.timer -= dt; return f.timer > 0; });
   }
 
   // ── 발사 시도 ─────────────────────────────────────────────
@@ -77,7 +97,7 @@ class WeaponSystem {
    * @param {boolean} isAlt 마우스 우클릭
    * @returns {object|null}  { hit: boolean, kill: boolean, ... }
    */
-  tryFire(player, bots, isPrimary, isAlt = false) {
+  tryFire(player, bots, isPrimary, isAlt = false, justPressedLeft = false) {
     if (!player.alive) return null;
     if (!isPrimary && !isAlt) return null;
 
@@ -87,6 +107,15 @@ class WeaponSystem {
 
     // 근접무기
     if (wData.type === 'melee') return this._fireMelee(player, bots, isAlt);
+
+    // 반자동 무기: 마우스 홀드로 연발 불가 (한 클릭 한 발)
+    if (!wData.auto) {
+      if (!justPressedLeft) return null;
+      if (this._semiAutoFired[wId]) return null;
+      this._semiAutoFired[wId] = true;
+    } else {
+      this._semiAutoFired[wId] = false;
+    }
 
     // 쿨다운 체크
     if (this._fireCooldowns[wId] > 0) return null;
@@ -109,6 +138,12 @@ class WeaponSystem {
     // 쿨다운 설정 (발사 속도)
     this._fireCooldowns[wId] = 1 / wData.fireRate;
 
+    // 반동 누적 (연속 사격 시 정확도 하락)
+    this.consecutiveShots++;
+    const recoilPerShot = wData.auto ? 0.008 : 0.003;
+    this.recoilAccum += recoilPerShot * Math.min(this.consecutiveShots, 15);
+    this.recoilAccum = Math.min(this.recoilAccum, 0.35); // 최대 반동 캡
+
     // 오디오
     if (this.audio) this.audio.playGunshot(wId, player.x, player.y);
 
@@ -121,10 +156,16 @@ class WeaponSystem {
     return this._fireHitscan(player, bots, wData);
   }
 
+  // 반자동 무기 클릭 해제 시 호출
+  resetSemiAuto(weaponId) {
+    this._semiAutoFired[weaponId] = false;
+  }
+
   // ── 일반 히트스캔 ─────────────────────────────────────────
   _fireHitscan(player, bots, wData) {
-    const spread = player.getAccuracy();
-    const angle  = player.angle + (Math.random() - 0.5) * spread * 2;
+    const baseSpread = player.getAccuracy();
+    const totalSpread = baseSpread + this.recoilAccum;
+    const angle  = player.angle + (Math.random() - 0.5) * totalSpread * 2;
     const range  = 2400;
     const ex = player.x + Math.cos(angle) * range;
     const ey = player.y + Math.sin(angle) * range;
@@ -161,10 +202,17 @@ class WeaponSystem {
       endX = ex; endY = ey;
     }
 
-    // 트레이서 생성
-    this.bullets.push(new Bullet(player.x, player.y, endX, endY,
-      wData.silenced ? '#8899ff' : '#ffee88',
-    ));
+    // 트레이서 생성 (스킨 색상 적용)
+    let tracerColor = wData.silenced ? '#8899ff' : '#ffee88';
+    if (typeof SKIN_DATA !== 'undefined' && typeof EQUIPPED_SKINS !== 'undefined') {
+      const skins = SKIN_DATA[wData.id];
+      const skinId = EQUIPPED_SKINS[wData.id];
+      if (skins && skinId) {
+        const skin = skins.find(s => s.id === skinId);
+        if (skin && skin.tracer) tracerColor = skin.tracer;
+      }
+    }
+    this.bullets.push(new Bullet(player.x, player.y, endX, endY, tracerColor));
 
     if (!hitResult) {
       // 벽 임팩트
@@ -203,7 +251,11 @@ class WeaponSystem {
     this.impacts.push(new ImpactParticle(hitResult.hit.x, hitResult.hit.y, zone, zone === 'head'));
 
     const killed = !hitResult.bot.alive;
-    if (killed) player.kills++;
+    if (killed) {
+      player.kills++;
+      // 킬 피니셔 이펙트 스폰
+      this._spawnFinisher(hitResult.bot.x, hitResult.bot.y, wData.id);
+    }
 
     this.lastHitResult = { hit: true, bot: hitResult.bot, damage: actualDmg, zone, killed, wallbang: hitResult.wbCalc.pierced };
     return this.lastHitResult;
@@ -346,10 +398,91 @@ class WeaponSystem {
     };
   }
 
+  // ── 킬 피니셔 이펙트 생성 ──────────────────────────────────
+  _spawnFinisher(x, y, weaponId) {
+    // 스킨에 따른 피니셔 색상 & 타입 결정
+    let finisherColor = '#ff4655';
+    let finisherType = 'default';
+    if (typeof SKIN_DATA !== 'undefined' && typeof EQUIPPED_SKINS !== 'undefined') {
+      const skins = SKIN_DATA[weaponId];
+      const skinId = EQUIPPED_SKINS[weaponId];
+      if (skins && skinId) {
+        const skin = skins.find(s => s.id === skinId);
+        if (skin) {
+          finisherColor = skin.accent || finisherColor;
+          finisherType = skin.finisher || 'default';
+        }
+      }
+    }
+    // 파티클 12~20개 생성
+    const count = 12 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 80 + Math.random() * 200;
+      this.finishers.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        timer: 0.6 + Math.random() * 0.6,
+        color: finisherColor,
+        type: finisherType,
+        size: 2 + Math.random() * 4,
+      });
+    }
+  }
+
   // ── 렌더링 ───────────────────────────────────────────────
   render(ctx) {
     this.bullets.forEach(b => b.render(ctx));
     this.impacts.forEach(p => p.render(ctx));
+    // 킬 피니셔 파티클 렌더링
+    for (const f of this.finishers) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, f.timer * 2);
+      ctx.shadowColor = f.color;
+      ctx.shadowBlur = 8;
+      if (f.type === 'reaver') {
+        // 약탈자: 보라색 소용돌이 궤적
+        ctx.fillStyle = f.color;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.size * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (f.type === 'prime') {
+        // 프라임: 금색 기하학 파편
+        ctx.fillStyle = f.color;
+        ctx.fillRect(f.x - f.size / 2, f.y - f.size / 2, f.size, f.size);
+      } else if (f.type === 'fire') {
+        // 엘더플레임/오니: 불꽃 파티클
+        const fireGrad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.size * 2);
+        fireGrad.addColorStop(0, '#fbbf24');
+        fireGrad.addColorStop(0.5, f.color);
+        fireGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = fireGrad;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.size * 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (f.type === 'spectrum') {
+        // 스펙트럼: 무지개 빛 글로우
+        const hue = (Date.now() * 0.5) % 360;
+        ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.size * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // 기본: 적색 폭발 파편
+        ctx.fillStyle = f.color;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      // 이동
+      const subDt = 0.016;
+      f.x += f.vx * subDt;
+      f.y += f.vy * subDt;
+      f.vx *= 0.96;
+      f.vy *= 0.96;
+    }
   }
 
   // 발사 재장전 진행률 (HUD용)

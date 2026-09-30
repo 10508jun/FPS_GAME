@@ -283,7 +283,8 @@ class GameManager {
       if (this._fireCooldown <= 0) {
         const hitResult = this.weaponSys.tryFire(
           this.player, this.bots, 
-          this.input.mouse.left, this.input.mouse.right
+          this.input.mouse.left, this.input.mouse.right,
+          this.input._justPressedLeft
         );
         
         // 서버에 발사 알림
@@ -311,6 +312,11 @@ class GameManager {
         }
         this._fireCooldown = 0.016; 
       }
+    }
+    // 반자동 무기: 마우스 놓으면 다시 발사 가능하도록 리셋
+    if (!this.input.mouse.left) {
+      this.weaponSys.resetSemiAuto(this.player.currentWeapon);
+      this.weaponSys.consecutiveShots = 0;
     }
 
     // 재장전

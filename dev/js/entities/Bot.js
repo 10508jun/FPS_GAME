@@ -220,6 +220,17 @@ class Bot {
     }
     this.x = Math.max(this.radius, Math.min(CONFIG.WORLD_WIDTH  - this.radius, this.x));
     this.y = Math.max(this.radius, Math.min(CONFIG.WORLD_HEIGHT - this.radius, this.y));
+
+    // 원형 맵 경계 이탈 방지 (360도 아레나)
+    if (typeof window !== 'undefined' && window.gm && window.gm.mapData && window.gm.mapData._circularBounds) {
+      const cb = window.gm.mapData._circularBounds;
+      const dist = Math.hypot(this.x - cb.cx, this.y - cb.cy);
+      if (dist > cb.radius) {
+        const ang = Math.atan2(this.y - cb.cy, this.x - cb.cx);
+        this.x = cb.cx + Math.cos(ang) * cb.radius;
+        this.y = cb.cy + Math.sin(ang) * cb.radius;
+      }
+    }
   }
 
   _collides(rect) {

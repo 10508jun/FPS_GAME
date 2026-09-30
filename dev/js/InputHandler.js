@@ -12,6 +12,7 @@ class InputHandler {
     // 단발 이벤트 큐 (업데이트 후 소비됨)
     this._justPressed  = new Set();
     this._justReleased = new Set();
+    this._justPressedLeft = false;
     this._mouseClicks  = [];   // { button, x, y }
 
     // 카메라 오프셋 (월드 좌표 변환용)
@@ -49,7 +50,10 @@ class InputHandler {
 
     // 마우스 버튼
     this.canvas.addEventListener('mousedown', e => {
-      if (e.button === 0) this.mouse.left  = true;
+      if (e.button === 0) {
+        this.mouse.left = true;
+        this._justPressedLeft = true;
+      }
       if (e.button === 2) this.mouse.right = true;
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.canvas.width  / rect.width;
@@ -73,6 +77,7 @@ class InputHandler {
       this.keys  = {};
       this.mouse.left  = false;
       this.mouse.right = false;
+      this._justPressedLeft = false;
     });
   }
 
@@ -80,6 +85,7 @@ class InputHandler {
   flush() {
     this._justPressed.clear();
     this._justReleased.clear();
+    this._justPressedLeft = false;
     this._mouseClicks = [];
   }
 
